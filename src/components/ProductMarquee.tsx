@@ -12,15 +12,15 @@ const products = [
   { name: "Café em Pó", image: cafe },
   { name: "Saco de Lixo 100L", image: sacoLixo },
   { name: "Luvas de Proteção", image: luvas },
-  { name: "Copos Descartáveis", image: copos },
+  { name: "Descartáveis", image: copos },
   { name: "Sabonete Líquido", image: sabonete },
 ];
 
 const ProductCard = ({ name, image }: { name: string; image: string }) => (
-  <div className="flex-shrink-0 w-40 mx-1.5">
-    <div className="bg-white rounded-xl shadow-md p-3 flex flex-col items-center gap-2">
-      <img src={image} alt={name} className="w-28 h-28 object-contain rounded-lg" />
-      <span className="text-sm text-muted-foreground text-center leading-tight font-bold">{name}</span>
+  <div className="flex-shrink-0 w-[256px] h-[280px] mx-1">
+    <div className="bg-white rounded-xl shadow-md p-4 flex flex-col items-center gap-2 h-full">
+      <img src={image} alt={name} className="w-44 h-44 object-contain flex-shrink-0" />
+      <span className="text-base text-muted-foreground text-center font-bold whitespace-nowrap">{name}</span>
     </div>
   </div>
 );
