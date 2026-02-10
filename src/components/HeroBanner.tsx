@@ -25,7 +25,7 @@ const HeroBanner = () => {
             <ArrowRight className="h-5 w-5" />
           </Button>
 
-          <div className="mt-10" />
+          <div className="mt-4" />
         </div>
       </div>
       {/* Product Marquee - full width */}
