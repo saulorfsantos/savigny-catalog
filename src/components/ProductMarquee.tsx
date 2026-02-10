@@ -17,10 +17,10 @@ const products = [
 ];
 
 const ProductCard = ({ name, image }: { name: string; image: string }) => (
-  <div className="flex-shrink-0 w-28 mx-3">
+  <div className="flex-shrink-0 w-40 mx-1.5">
     <div className="bg-white rounded-xl shadow-md p-3 flex flex-col items-center gap-2">
-      <img src={image} alt={name} className="w-16 h-16 object-contain rounded-lg" />
-      <span className="text-xs text-muted-foreground text-center leading-tight font-medium">{name}</span>
+      <img src={image} alt={name} className="w-28 h-28 object-contain rounded-lg" />
+      <span className="text-sm text-muted-foreground text-center leading-tight font-bold">{name}</span>
     </div>
   </div>
 );
