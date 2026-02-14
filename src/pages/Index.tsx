@@ -1,6 +1,7 @@
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import HeroBanner from "@/components/HeroBanner";
+import CatalogSection from "@/components/CatalogSection";
 
 const Index = () => {
   return (
@@ -8,6 +9,7 @@ const Index = () => {
       <TopBar />
       <Header />
       <HeroBanner />
+      <CatalogSection />
     </div>
   );
 };
