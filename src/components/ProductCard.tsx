@@ -54,11 +54,8 @@ const ProductCard = ({ name, detail, price, image, tag = "Pronta Entrega" }: Pro
 
       {/* Price + Action */}
       <div className="px-4 pb-4 mt-auto">
-        <div className="flex items-baseline gap-1 mb-3">
-          <span className="text-lg font-extrabold text-foreground">
-            R$ {price.toFixed(2).replace(".", ",")}
-          </span>
-          <span className="text-xs text-muted-foreground">/ un</span>
+        <div className="mb-3">
+          <span className="text-xs text-muted-foreground font-medium">Condição B2B</span>
         </div>
 
         {/* Quantity Counter */}

@@ -66,7 +66,7 @@ const Header = () => {
           {/* Cart */}
           <Button variant="outline" className="shrink-0 gap-2 border-muted">
             <ShoppingCart className="h-5 w-5" />
-            <span className="hidden sm:inline text-sm font-medium">Minha Cotação</span>
+            <span className="hidden sm:inline text-sm font-medium">Solicitar Orçamento</span>
             <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
               {cartCount}
             </Badge>
