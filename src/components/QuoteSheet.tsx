@@ -19,6 +19,16 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
+/* ─── Diretório de vendedores ───
+   Edite os números abaixo para rotear o WhatsApp corretamente.
+   Formato internacional sem "+", ex: 5511999999999              */
+const SELLER_DIRECTORY: Record<string, { name: string; phone: string }> = {
+  "sem-vendedor": { name: "",      phone: "5511999990000" }, // número padrão
+  saulo:          { name: "Saulo", phone: "5511999991111" },
+  sara:           { name: "Sara",  phone: "5511999992222" },
+  outro:          { name: "",      phone: "5511999990000" }, // número padrão
+};
+
 const QuoteSheet = () => {
   const { items, updateQuantity, removeItem, totalItems } = useCart();
   const [name, setName] = useState("");
@@ -27,31 +37,23 @@ const QuoteSheet = () => {
 
   const isValid = items.length > 0 && name.trim().length > 0 && company.trim().length > 0;
 
-  const sellerNames: Record<string, string> = {
-    "sem-vendedor": "",
-    saulo: "Saulo",
-    sara: "Sara",
-    outro: "",
-  };
-
   const handleSend = () => {
     if (!isValid) return;
 
-    const sellerGreeting = sellerNames[seller]
-      ? `Olá, ${sellerNames[seller]}! 👋`
+    const sellerInfo = SELLER_DIRECTORY[seller] ?? SELLER_DIRECTORY["sem-vendedor"];
+
+    const greeting = sellerInfo.name
+      ? `Olá, ${sellerInfo.name}! 👋`
       : "Olá! 👋";
 
     const itemsList = items
       .map((item) => `📦 ${item.quantity} x ${item.name}`)
       .join("\n");
 
-    const safeName = encodeURIComponent(name.trim()).slice(0, 200);
-    const safeCompany = encodeURIComponent(company.trim()).slice(0, 200);
-
-    const message = `${sellerGreeting} Aqui é ${name.trim()} da empresa ${company.trim()}. Gostaria de receber o orçamento para estes itens:\n\n${itemsList}\n\nAguardo o retorno com valores e disponibilidade.`;
+    const message = `${greeting} Aqui é ${name.trim()} da empresa ${company.trim()}. Gostaria de receber o orçamento para estes itens:\n\n${itemsList}\n\nAguardo o retorno com valores e disponibilidade.`;
 
     const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank");
+    window.open(`https://wa.me/${sellerInfo.phone}?text=${encoded}`, "_blank");
   };
 
   return (
