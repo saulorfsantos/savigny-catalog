@@ -1,5 +1,6 @@
 import { Minus, Plus } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
@@ -18,13 +19,21 @@ const ProductCard = ({ id, name, detail, image, tag = "Pronta Entrega" }: Produc
   const increment = () => {
     if (quantity === 0) {
       addItem({ id, name, detail, image });
+      toast({ title: "✅ Item adicionado à cotação!", duration: 2000 });
     } else {
       updateQuantity(id, quantity + 1);
+      toast({ title: "✅ Item atualizado na cotação!", duration: 2000 });
     }
   };
 
   const decrement = () => {
-    updateQuantity(id, quantity - 1);
+    if (quantity <= 1) {
+      updateQuantity(id, quantity - 1);
+      toast({ title: "🗑️ Item removido da cotação", duration: 2000 });
+    } else {
+      updateQuantity(id, quantity - 1);
+      toast({ title: "✅ Item atualizado na cotação!", duration: 2000 });
+    }
   };
 
   return (
@@ -65,12 +74,12 @@ const ProductCard = ({ id, name, detail, image, tag = "Pronta Entrega" }: Produc
           <button
             onClick={decrement}
             className={cn(
-              "p-2.5 transition-colors",
+              "p-3 transition-colors rounded-l-lg",
               isInCart ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-muted/80"
             )}
             aria-label="Diminuir quantidade"
           >
-            <Minus className="h-4 w-4" />
+            <Minus className="h-5 w-5" />
           </button>
           <span className={cn(
             "flex-1 text-center text-sm font-bold tabular-nums",
@@ -81,12 +90,12 @@ const ProductCard = ({ id, name, detail, image, tag = "Pronta Entrega" }: Produc
           <button
             onClick={increment}
             className={cn(
-              "p-2.5 transition-colors",
+              "p-3 transition-colors rounded-r-lg",
               isInCart ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-muted/80"
             )}
             aria-label="Aumentar quantidade"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
           </button>
         </div>
       </div>
