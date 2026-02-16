@@ -100,7 +100,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ query: product.name }),
+        body: JSON.stringify({ query: product.name, ean: product.ean }),
       });
 
       const data = await resp.json();
