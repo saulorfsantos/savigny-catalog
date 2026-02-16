@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,28 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Package } from "lucide-react";
+import { Pencil, Trash2, Package, Wand2, Loader2, Search } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
 
 const PAGE_SIZE = 50;
+const DAILY_LIMIT = 100;
+
+function getTodayKey() {
+  return `img_search_count_${new Date().toISOString().slice(0, 10)}`;
+}
+
+function getDailyCount(): number {
+  return parseInt(localStorage.getItem(getTodayKey()) || "0", 10);
+}
+
+function incrementDailyCount(): number {
+  const key = getTodayKey();
+  const next = getDailyCount() + 1;
+  localStorage.setItem(key, String(next));
+  return next;
+}
 
 interface Props {
   products: Product[];
@@ -27,6 +43,12 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   const [editForm, setEditForm] = useState({ name: "", category: "", price: "" });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  // Image search state
+  const [searchingId, setSearchingId] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ productId: string; productName: string; url: string } | null>(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const [dailyCount, setDailyCount] = useState(getDailyCount());
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -64,12 +86,66 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
     }
   };
 
+  const handleSearchImage = async (product: Product) => {
+    if (getDailyCount() >= DAILY_LIMIT) {
+      toast({ title: "Limite diário atingido", description: `Você já fez ${DAILY_LIMIT} buscas hoje.`, variant: "destructive" });
+      return;
+    }
+
+    setSearchingId(product.id);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ query: product.name }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok) {
+        toast({ title: "Erro na busca", description: data.error || "Erro desconhecido", variant: "destructive" });
+        return;
+      }
+
+      const newCount = incrementDailyCount();
+      setDailyCount(newCount);
+
+      if (data.imageUrl) {
+        setImagePreview({ productId: product.id, productName: product.name, url: data.imageUrl });
+      } else {
+        toast({ title: "Nenhuma imagem encontrada", description: `Não foi possível encontrar uma imagem para "${product.name}".` });
+      }
+    } catch (e) {
+      toast({ title: "Erro de conexão", description: "Não foi possível conectar ao servidor.", variant: "destructive" });
+    } finally {
+      setSearchingId(null);
+    }
+  };
+
+  const handleSaveImage = async () => {
+    if (!imagePreview) return;
+    setSavingImage(true);
+    const { error } = await supabase
+      .from("products")
+      .update({ image_url: imagePreview.url })
+      .eq("id", imagePreview.productId);
+    if (error) {
+      toast({ title: "Erro ao salvar imagem", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Imagem salva!" });
+      setImagePreview(null);
+      onRefresh();
+    }
+    setSavingImage(false);
+  };
+
   const formatPrice = (price: number | null) => {
     if (price === null) return "—";
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(price);
   };
 
-  // Generate visible page numbers
   const getPageNumbers = () => {
     const pages: number[] = [];
     const start = Math.max(1, page - 2);
@@ -87,6 +163,10 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
             Produtos Cadastrados
             <span className="text-sm font-normal text-muted-foreground">({totalCount})</span>
           </h3>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Search className="h-4 w-4" />
+            Buscas Hoje: <span className={dailyCount >= DAILY_LIMIT ? "text-destructive font-bold" : "font-semibold text-foreground"}>{dailyCount}</span>/{DAILY_LIMIT}
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -95,7 +175,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
               <TableHead>Nome</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead className="text-right">Preço</TableHead>
-              <TableHead className="text-right w-28">Ações</TableHead>
+              <TableHead className="text-right w-36">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -122,6 +202,19 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
                   <TableCell className="text-right">{formatPrice(p.price)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSearchImage(p)}
+                        disabled={searchingId === p.id}
+                        title="Buscar Foto"
+                      >
+                        {searchingId === p.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Wand2 className="h-4 w-4 text-primary" />
+                        )}
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -163,6 +256,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
         )}
       </div>
 
+      {/* Edit Product Dialog */}
       <Dialog open={!!editProduct} onOpenChange={(open) => !open && setEditProduct(null)}>
         <DialogContent>
           <DialogHeader>
@@ -185,6 +279,34 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditProduct(null)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Imagem encontrada</DialogTitle>
+          </DialogHeader>
+          {imagePreview && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Produto: <span className="font-medium text-foreground">{imagePreview.productName}</span></p>
+              <div className="flex justify-center rounded-lg border bg-muted p-2">
+                <img
+                  src={imagePreview.url}
+                  alt={imagePreview.productName}
+                  className="max-h-64 rounded object-contain"
+                  onError={() => toast({ title: "Erro ao carregar imagem", variant: "destructive" })}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImagePreview(null)}>Cancelar</Button>
+            <Button onClick={handleSaveImage} disabled={savingImage}>
+              {savingImage ? "Salvando..." : "Salvar Foto"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
