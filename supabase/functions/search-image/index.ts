@@ -32,15 +32,18 @@ serve(async (req) => {
 
     const searchQuery = encodeURIComponent(`${query} produto`);
     const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${searchQuery}&searchType=image&num=1&safe=active`;
-    console.log("Requesting URL (key redacted):", url.replace(apiKey, "REDACTED"));
+    console.log("API Key length:", apiKey.length, "CX length:", cx.length);
+    console.log("CX value:", cx);
+    console.log("Requesting URL (key redacted):", url.replace(apiKey!, "REDACTED"));
 
     const res = await fetch(url);
     const data = await res.json();
+    console.log("Google API response status:", res.status);
+    console.log("Google API response body:", JSON.stringify(data).slice(0, 500));
 
     if (!res.ok) {
-      console.error("Google API error:", JSON.stringify(data));
       return new Response(
-        JSON.stringify({ error: data.error?.message || "Google API error" }),
+        JSON.stringify({ error: data.error?.message || "Google API error", details: data.error }),
         { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
