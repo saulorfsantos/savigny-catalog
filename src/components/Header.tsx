@@ -1,9 +1,10 @@
 import { Search, ShoppingCart, Menu } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { useCart } from "@/contexts/CartContext";
+import QuoteSheet from "@/components/QuoteSheet";
 
 const categories = [
   "Office", "Pro Clean", "Utility", "Coffee & Break",
@@ -11,11 +12,10 @@ const categories = [
 ];
 
 const Header = () => {
-  const [cartCount] = useState(0);
+  const { totalItems } = useCart();
 
   return (
     <>
-      {/* Main Header */}
       <header className="bg-background shadow-sm sticky top-0 z-40">
         <div className="container mx-auto flex items-center justify-between gap-4 py-3 px-4">
           {/* Mobile menu */}
@@ -63,14 +63,21 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Cart */}
-          <Button variant="outline" className="shrink-0 gap-2 border-muted">
-            <ShoppingCart className="h-5 w-5" />
-            <span className="hidden sm:inline text-sm font-medium">Solicitar Orçamento</span>
-            <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
-              {cartCount}
-            </Badge>
-          </Button>
+          {/* Quote Cart */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="shrink-0 gap-2 border-muted">
+                <ShoppingCart className="h-5 w-5" />
+                <span className="hidden sm:inline text-sm font-medium">Solicitar Orçamento</span>
+                <Badge className="h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                  {totalItems}
+                </Badge>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+              <QuoteSheet />
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Mobile Search */}

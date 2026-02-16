@@ -96,9 +96,9 @@ const CatalogSection = () => {
               {displayProducts.map((product) => (
                 <ProductCard
                   key={product.id}
+                  id={product.id}
                   name={product.name}
                   detail={product.detail}
-                  price={product.price}
                   image={product.image}
                 />
               ))}
