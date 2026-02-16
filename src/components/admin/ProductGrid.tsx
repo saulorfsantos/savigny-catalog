@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Package, Wand2, Loader2, Search } from "lucide-react";
+import { Pencil, Trash2, Package, Wand2, Loader2, Search, Upload } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
@@ -44,11 +44,15 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  // Image search state
-  const [searchingId, setSearchingId] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<{ productId: string; productName: string; url: string } | null>(null);
+  // Image search modal state
+  const [imageModal, setImageModal] = useState<{ product: Product; searchTerm: string } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<{ url: string; thumbnail: string | null } | null>(null);
   const [savingImage, setSavingImage] = useState(false);
   const [dailyCount, setDailyCount] = useState(getDailyCount());
+
+  // Upload state
+  const [uploading, setUploading] = useState(false);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -86,13 +90,22 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
     }
   };
 
-  const handleSearchImage = async (product: Product) => {
+  // Open image modal (for wand click or thumbnail click)
+  const openImageModal = (product: Product) => {
+    setSearchResult(null);
+    setImageModal({ product, searchTerm: product.name });
+  };
+
+  // Search using Serper
+  const handleSearch = async () => {
+    if (!imageModal) return;
     if (getDailyCount() >= DAILY_LIMIT) {
       toast({ title: "Limite diário atingido", description: `Você já fez ${DAILY_LIMIT} buscas hoje.`, variant: "destructive" });
       return;
     }
 
-    setSearchingId(product.id);
+    setSearching(true);
+    setSearchResult(null);
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-image`, {
         method: "POST",
@@ -100,7 +113,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ query: product.name, ean: product.ean }),
+        body: JSON.stringify({ query: imageModal.searchTerm, ean: imageModal.product.ean }),
       });
 
       const data = await resp.json();
@@ -113,32 +126,83 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
       setDailyCount(newCount);
 
       if (data.imageUrl) {
-        setImagePreview({ productId: product.id, productName: product.name, url: data.imageUrl });
+        setSearchResult({ url: data.imageUrl, thumbnail: data.thumbnail });
       } else {
-        toast({ title: "Nenhuma imagem encontrada", description: `Não foi possível encontrar uma imagem para "${product.name}".` });
+        toast({ title: "Nenhuma imagem encontrada", description: "Tente editar o termo de busca ou faça upload manual." });
       }
-    } catch (e) {
+    } catch {
       toast({ title: "Erro de conexão", description: "Não foi possível conectar ao servidor.", variant: "destructive" });
     } finally {
-      setSearchingId(null);
+      setSearching(false);
     }
   };
 
-  const handleSaveImage = async () => {
-    if (!imagePreview) return;
+  // Save found image URL to product
+  const handleSaveImageUrl = async (url: string) => {
+    if (!imageModal) return;
     setSavingImage(true);
     const { error } = await supabase
       .from("products")
-      .update({ image_url: imagePreview.url })
-      .eq("id", imagePreview.productId);
+      .update({ image_url: url })
+      .eq("id", imageModal.product.id);
     if (error) {
       toast({ title: "Erro ao salvar imagem", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Imagem salva!" });
-      setImagePreview(null);
+      setImageModal(null);
+      setSearchResult(null);
       onRefresh();
     }
     setSavingImage(false);
+  };
+
+  // Handle manual file upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !imageModal) return;
+
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast({ title: "Arquivo muito grande", description: "O tamanho máximo é 5MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const filePath = `${imageModal.product.id}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      toast({ title: "Erro no upload", description: uploadError.message, variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(filePath);
+
+    const publicUrl = urlData.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({ image_url: publicUrl })
+      .eq("id", imageModal.product.id);
+
+    if (updateError) {
+      toast({ title: "Erro ao salvar", description: updateError.message, variant: "destructive" });
+    } else {
+      toast({ title: "Imagem enviada com sucesso!" });
+      setImageModal(null);
+      setSearchResult(null);
+      onRefresh();
+    }
+    setUploading(false);
+    // Reset file input
+    e.target.value = "";
   };
 
   const formatPrice = (price: number | null) => {
@@ -175,7 +239,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
               <TableHead>Nome</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead className="text-right">Preço</TableHead>
-              <TableHead className="text-right w-36">Ações</TableHead>
+              <TableHead className="text-right w-40">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -190,7 +254,9 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
                 <TableRow key={p.id}>
                   <TableCell>
                     {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} className="h-10 w-10 rounded object-cover" />
+                      <button onClick={() => openImageModal(p)} className="focus:outline-none" title="Clique para trocar a foto">
+                        <img src={p.image_url} alt={p.name} className="h-10 w-10 rounded object-cover cursor-pointer hover:ring-2 hover:ring-primary transition-all" />
+                      </button>
                     ) : (
                       <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
                         <Package className="h-5 w-5 text-muted-foreground" />
@@ -202,19 +268,22 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
                   <TableCell className="text-right">{formatPrice(p.price)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSearchImage(p)}
-                        disabled={searchingId === p.id}
-                        title="Buscar Foto"
-                      >
-                        {searchingId === p.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Wand2 className="h-4 w-4 text-primary" />
-                        )}
+                      <Button variant="ghost" size="icon" onClick={() => openImageModal(p)} title="Buscar Foto">
+                        <Wand2 className="h-4 w-4 text-primary" />
                       </Button>
+                      <label title="Upload Manual" className="inline-flex items-center justify-center h-10 w-10 rounded-md hover:bg-accent cursor-pointer transition-colors">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            // Set modal context for upload without opening modal
+                            setImageModal({ product: p, searchTerm: p.name });
+                            handleFileUpload(e);
+                          }}
+                        />
+                      </label>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -283,30 +352,75 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
         </DialogContent>
       </Dialog>
 
-      {/* Image Preview Dialog */}
-      <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>
+      {/* Image Search & Upload Modal */}
+      <Dialog open={!!imageModal} onOpenChange={(open) => { if (!open) { setImageModal(null); setSearchResult(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Imagem encontrada</DialogTitle>
+            <DialogTitle>Buscar Imagem</DialogTitle>
           </DialogHeader>
-          {imagePreview && (
+          {imageModal && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Produto: <span className="font-medium text-foreground">{imagePreview.productName}</span></p>
-              <div className="flex justify-center rounded-lg border bg-muted p-2">
-                <img
-                  src={imagePreview.url}
-                  alt={imagePreview.productName}
-                  className="max-h-64 rounded object-contain"
-                  onError={() => toast({ title: "Erro ao carregar imagem", variant: "destructive" })}
+              <p className="text-sm text-muted-foreground">
+                Produto: <span className="font-medium text-foreground">{imageModal.product.name}</span>
+              </p>
+
+              {/* Editable search field */}
+              <div className="flex gap-2">
+                <Input
+                  value={imageModal.searchTerm}
+                  onChange={(e) => setImageModal((prev) => prev ? { ...prev, searchTerm: e.target.value } : null)}
+                  placeholder="Termo de busca..."
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
+                <Button onClick={handleSearch} disabled={searching || !imageModal.searchTerm.trim()} className="shrink-0">
+                  {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Search className="h-4 w-4 mr-1" /> Pesquisar</>}
+                </Button>
               </div>
+
+              {/* Search result preview */}
+              {searchResult && (
+                <div className="space-y-3">
+                  <div className="flex justify-center rounded-lg border bg-muted p-2">
+                    <img
+                      src={searchResult.url}
+                      alt={imageModal.product.name}
+                      className="max-h-64 rounded object-contain"
+                      onError={() => toast({ title: "Erro ao carregar imagem", variant: "destructive" })}
+                    />
+                  </div>
+                  <Button onClick={() => handleSaveImageUrl(searchResult.url)} disabled={savingImage} className="w-full">
+                    {savingImage ? "Salvando..." : "✅ Usar esta imagem"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+
+              {/* Manual upload */}
+              <label className="flex items-center justify-center gap-2 w-full h-20 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 cursor-pointer transition-colors text-sm text-muted-foreground hover:text-foreground">
+                {uploading ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Enviando...</>
+                ) : (
+                  <><Upload className="h-5 w-5" /> Fazer upload manual</>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                />
+              </label>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImagePreview(null)}>Cancelar</Button>
-            <Button onClick={handleSaveImage} disabled={savingImage}>
-              {savingImage ? "Salvando..." : "Salvar Foto"}
-            </Button>
+            <Button variant="outline" onClick={() => { setImageModal(null); setSearchResult(null); }}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
