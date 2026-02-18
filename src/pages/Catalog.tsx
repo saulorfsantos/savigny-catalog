@@ -4,7 +4,7 @@ import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Package, Sparkles, Utensils, SprayCanIcon, Coffee, Briefcase, Heart, HardHat, ShoppingBag } from "lucide-react";
+import { Loader2, Package, Sparkles, Utensils, SprayCanIcon, Coffee, Briefcase, Heart, HardHat, ShoppingBag, Wrench, Droplets, Car, FlaskConical, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Pagination,
@@ -28,21 +28,18 @@ const PAGE_SIZE = 24;
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   office: Briefcase,
-  "pro clean": SprayCanIcon,
-  utility: Package,
-  "coffee & break": Coffee,
-  "coffee &amp; break": Coffee,
-  "food service": Utensils,
-  "tissue & care": Heart,
-  "tissue &amp; care": Heart,
-  epis: HardHat,
-  alimentos: Utensils,
   limpeza: SprayCanIcon,
-  higiene: Heart,
-  escritorio: Briefcase,
-  escritório: Briefcase,
-  descartaveis: ShoppingBag,
-  descartáveis: ShoppingBag,
+  utility: Wrench,
+  "food service": Utensils,
+  "descartáveis": ShoppingBag,
+  "higiene pessoal": Heart,
+  "higiene corporativa": FlaskConical,
+  "epi's": HardHat,
+  piscina: Droplets,
+  perfumaria: Coffee,
+  "manutenção": Wrench,
+  automotivo: Car,
+  outros: LayoutGrid,
 };
 
 function getIconForCategory(cat: string) {

@@ -1,15 +1,21 @@
 import { useState } from "react";
-import { Briefcase, SprayCanIcon, Wrench, Coffee, UtensilsCrossed, Heart, HardHat } from "lucide-react";
+import { Briefcase, SprayCanIcon, Wrench, Coffee, Utensils, Heart, HardHat, ShoppingBag, Droplets, Car, FlaskConical, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const categories = [
   { id: "office", label: "Office", icon: Briefcase },
-  { id: "pro-clean", label: "Pro Clean", icon: SprayCanIcon },
+  { id: "limpeza", label: "Limpeza", icon: SprayCanIcon },
   { id: "utility", label: "Utility", icon: Wrench },
-  { id: "coffee-break", label: "Coffee & Break", icon: Coffee },
-  { id: "food-service", label: "Food Service", icon: UtensilsCrossed },
-  { id: "tissue-care", label: "Tissue & Care", icon: Heart },
-  { id: "epis", label: "EPIs", icon: HardHat },
+  { id: "food-service", label: "Food Service", icon: Utensils },
+  { id: "descartáveis", label: "Descartáveis", icon: ShoppingBag },
+  { id: "higiene-pessoal", label: "Higiene Pessoal", icon: Heart },
+  { id: "higiene-corporativa", label: "Higiene Corporativa", icon: FlaskConical },
+  { id: "epis", label: "EPI's", icon: HardHat },
+  { id: "piscina", label: "Piscina", icon: Droplets },
+  { id: "perfumaria", label: "Perfumaria", icon: Coffee },
+  { id: "manutenção", label: "Manutenção", icon: Wrench },
+  { id: "automotivo", label: "Automotivo", icon: Car },
+  { id: "outros", label: "Outros", icon: LayoutGrid },
 ];
 
 interface CategorySidebarProps {
