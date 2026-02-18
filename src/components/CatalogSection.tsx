@@ -1,65 +1,79 @@
-import { useState } from "react";
-import CategorySidebar from "@/components/CategorySidebar";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import ProductCard from "@/components/ProductCard";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-import papelA4 from "@/assets/products/papel-a4.png";
-import detergente from "@/assets/products/detergente.png";
-import sacoLixo from "@/assets/products/saco-lixo.png";
-import copos from "@/assets/products/copos.png";
-import sabonete from "@/assets/products/sabonete.png";
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  image_url: string | null;
+}
 
-const products = [
-  {
-    id: 1,
-    name: "Papel A4 Papex Brasil",
-    detail: "Resma 500 folhas · 75g/m²",
-    price: 24.9,
-    image: papelA4,
-    category: "office",
-  },
-  {
-    id: 2,
-    name: "Detergente Ypê Neutro 5L",
-    detail: "Galão 5L · Neutro",
-    price: 29.9,
-    image: detergente,
-    category: "pro-clean",
-  },
-  {
-    id: 3,
-    name: "Água Sanitária Olimpo 5L",
-    detail: "Galão 5L · Cloro ativo 2,5%",
-    price: 14.5,
-    image: sabonete,
-    category: "pro-clean",
-  },
-  {
-    id: 4,
-    name: "Saco de Lixo Preto 100L",
-    detail: "Pacote 100un · Reforçado",
-    price: 39.9,
-    image: sacoLixo,
-    category: "utility",
-  },
-  {
-    id: 5,
-    name: "Copo Descartável 200ml",
-    detail: "CX 2.500un · Branco",
-    price: 54.9,
-    image: copos,
-    category: "food-service",
-  },
-];
+const PAGE_SIZE = 20;
 
-const CatalogSection = () => {
+interface CatalogSectionProps {
+  search?: string;
+}
+
+const CatalogSection = ({ search = "" }: CatalogSectionProps) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
 
-  const filtered =
-    activeCategory === "all"
-      ? products
-      : products.filter((p) => p.category === activeCategory);
+  // Fetch products
+  const fetchProducts = useCallback(async (offset: number, reset = false) => {
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
 
-  const displayProducts = filtered.length > 0 ? filtered : products;
+    let query = supabase
+      .from("products")
+      .select("id, name, category, unit, image_url")
+      .eq("available", true)
+      .order("name")
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    const { data, error } = await query;
+
+    if (!error && data) {
+      setProducts((prev) => reset ? data : [...prev, data as unknown as Product].flat());
+      setHasMore(data.length === PAGE_SIZE);
+    }
+    setLoading(false);
+    setLoadingMore(false);
+  }, []);
+
+  useEffect(() => {
+    fetchProducts(0, true);
+  }, [fetchProducts]);
+
+  // Derive categories from fetched products
+  const categories = useMemo(() => {
+    const cats = [...new Set(products.map((p) => p.category))].sort();
+    return cats;
+  }, [products]);
+
+  // Client-side filter
+  const filtered = useMemo(() => {
+    let result = products;
+    if (activeCategory !== "all") {
+      result = result.filter((p) => p.category === activeCategory);
+    }
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      result = result.filter((p) => p.name.toLowerCase().includes(term));
+    }
+    return result;
+  }, [products, activeCategory, search]);
+
+  const handleLoadMore = () => {
+    fetchProducts(products.length);
+  };
 
   return (
     <section className="bg-background py-12">
@@ -68,43 +82,80 @@ const CatalogSection = () => {
           Monte sua lista de suprimentos
         </h2>
 
-        <div className="flex gap-8">
-          {/* Sidebar - Desktop */}
-          <div className="hidden md:block w-52 flex-shrink-0">
-            <CategorySidebar
-              activeCategory={activeCategory}
-              onCategoryChange={(id) =>
-                setActiveCategory(id === activeCategory ? "all" : id)
-              }
-            />
+        {/* Category pills */}
+        <div className="mb-6 overflow-x-auto pb-2">
+          <div className="flex gap-2 min-w-max">
+            <button
+              onClick={() => setActiveCategory("all")}
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                activeCategory === "all"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted text-foreground/70 hover:text-foreground"
+              )}
+            >
+              Todos
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat === activeCategory ? "all" : cat)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors capitalize",
+                  activeCategory === cat
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted text-foreground/70 hover:text-foreground"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Products Area */}
-          <div className="flex-1 min-w-0">
-            {/* Mobile categories */}
-            <div className="md:hidden mb-6">
-              <CategorySidebar
-                activeCategory={activeCategory}
-                onCategoryChange={(id) =>
-                  setActiveCategory(id === activeCategory ? "all" : id)
-                }
-              />
-            </div>
-
+        {/* Loading */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
             {/* Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {displayProducts.map((product) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {filtered.map((product) => (
                 <ProductCard
                   key={product.id}
                   id={product.id}
                   name={product.name}
-                  detail={product.detail}
-                  image={product.image}
+                  detail={product.unit}
+                  image={product.image_url}
+                  category={product.category}
                 />
               ))}
             </div>
-          </div>
-        </div>
+
+            {filtered.length === 0 && (
+              <p className="text-center text-muted-foreground py-12">
+                Nenhum produto encontrado.
+              </p>
+            )}
+
+            {/* Load more */}
+            {hasMore && activeCategory === "all" && !search.trim() && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  variant="outline"
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="gap-2"
+                >
+                  {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Carregar mais produtos
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </section>
   );

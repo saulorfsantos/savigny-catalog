@@ -11,7 +11,12 @@ const categories = [
   "Food Service", "Tissue & Care", "EPIs",
 ];
 
-const Header = () => {
+interface HeaderProps {
+  search: string;
+  onSearchChange: (value: string) => void;
+}
+
+const Header = ({ search, onSearchChange }: HeaderProps) => {
   const { totalItems } = useCart();
 
   return (
@@ -52,6 +57,8 @@ const Header = () => {
             <div className="relative w-full">
               <Input
                 placeholder="O que sua empresa precisa hoje?"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
                 className="w-full h-11 pr-12 rounded-lg border-2 border-muted focus-visible:ring-primary focus-visible:border-primary text-sm"
               />
               <Button
@@ -85,6 +92,8 @@ const Header = () => {
           <div className="relative">
             <Input
               placeholder="O que sua empresa precisa hoje?"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
               className="w-full h-10 pr-10 rounded-lg border-2 border-muted text-sm"
             />
             <Button
