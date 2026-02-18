@@ -5,8 +5,16 @@ import Header from "@/components/Header";
 import ProductCard from "@/components/ProductCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Package, Sparkles, Utensils, SprayCanIcon, Coffee, Briefcase, Heart, HardHat, ShoppingBag } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Product {
   id: string;
@@ -16,7 +24,7 @@ interface Product {
   image_url: string | null;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 24;
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   office: Briefcase,
@@ -38,80 +46,124 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 };
 
 function getIconForCategory(cat: string) {
-  const key = cat.toLowerCase().trim();
-  return CATEGORY_ICONS[key] || Sparkles;
+  return CATEGORY_ICONS[cat.toLowerCase().trim()] || Sparkles;
 }
 
 const Catalog = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get("category") || "all";
+  const initialPage = parseInt(searchParams.get("page") || "1", 10);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
   const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  const fetchProducts = useCallback(async (offset: number, reset = false) => {
-    if (reset) setLoading(true);
-    else setLoadingMore(true);
+  // Fetch distinct categories once
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("category")
+        .eq("available", true);
+      if (data) {
+        const cats = [...new Set(data.map((p) => p.category))].sort();
+        setCategories(cats);
+      }
+    })();
+  }, []);
 
-    const { data, error } = await supabase
+  // Fetch products for current page with server-side filtering
+  const fetchPage = useCallback(async (page: number, category: string, searchTerm: string) => {
+    setLoading(true);
+    const offset = (page - 1) * PAGE_SIZE;
+
+    // Build base query for count
+    let countQuery = supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("available", true);
+
+    // Build data query
+    let dataQuery = supabase
       .from("products")
       .select("id, name, category, unit, image_url")
       .eq("available", true)
       .order("name")
       .range(offset, offset + PAGE_SIZE - 1);
 
-    if (!error && data) {
-      setProducts((prev) => (reset ? data : [...prev, ...data]));
-      setHasMore(data.length === PAGE_SIZE);
+    // Apply category filter (case-insensitive via ilike)
+    if (category !== "all") {
+      countQuery = countQuery.ilike("category", category);
+      dataQuery = dataQuery.ilike("category", category);
     }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      countQuery = countQuery.ilike("name", `%${searchTerm.trim()}%`);
+      dataQuery = dataQuery.ilike("name", `%${searchTerm.trim()}%`);
+    }
+
+    const [countRes, dataRes] = await Promise.all([countQuery, dataQuery]);
+
+    setTotalCount(countRes.count ?? 0);
+    setProducts(dataRes.data ?? []);
     setLoading(false);
-    setLoadingMore(false);
   }, []);
 
   useEffect(() => {
-    fetchProducts(0, true);
-  }, [fetchProducts]);
+    fetchPage(currentPage, activeCategory, search);
+  }, [currentPage, activeCategory, search, fetchPage]);
 
-  // Sync category and search with URL
+  // Sync URL params
   useEffect(() => {
-    const cat = searchParams.get("category");
-    if (cat) setActiveCategory(cat);
-    const s = searchParams.get("search");
-    if (s) setSearch(s);
+    const cat = searchParams.get("category") || "all";
+    const s = searchParams.get("search") || "";
+    const p = parseInt(searchParams.get("page") || "1", 10);
+    setActiveCategory(cat);
+    setSearch(s);
+    setCurrentPage(p);
   }, [searchParams]);
 
-  const handleCategoryChange = (cat: string) => {
-    setActiveCategory(cat);
-    if (cat === "all") {
-      setSearchParams(search ? { search } : {});
-    } else {
-      setSearchParams(search ? { category: cat, search } : { category: cat });
-    }
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const updateParams = (overrides: Record<string, string>) => {
+    const params: Record<string, string> = {};
+    const cat = overrides.category ?? activeCategory;
+    const s = overrides.search ?? search;
+    const p = overrides.page ?? "1";
+    if (cat !== "all") params.category = cat;
+    if (s) params.search = s;
+    if (p !== "1") params.page = p;
+    setSearchParams(params);
   };
 
-  const categories = useMemo(() => {
-    return [...new Set(products.map((p) => p.category))].sort();
-  }, [products]);
+  const handleCategoryChange = (cat: string) => updateParams({ category: cat, page: "1" });
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    updateParams({ page: String(page) });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-  const filtered = useMemo(() => {
-    let result = products;
-    if (activeCategory !== "all") {
-      result = result.filter(
-        (p) => p.category.toLowerCase() === activeCategory.toLowerCase()
-      );
+  // Generate page numbers to display
+  const pageNumbers = useMemo(() => {
+    const pages: (number | "ellipsis")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("ellipsis");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push("ellipsis");
+      pages.push(totalPages);
     }
-    if (search.trim()) {
-      const term = search.toLowerCase();
-      result = result.filter((p) => p.name.toLowerCase().includes(term));
-    }
-    return result;
-  }, [products, activeCategory, search]);
-
-  const handleLoadMore = () => fetchProducts(products.length);
+    return pages;
+  }, [currentPage, totalPages]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -209,8 +261,13 @@ const Catalog = () => {
               </div>
             ) : (
               <>
+                {/* Count feedback */}
+                <p className="text-sm text-muted-foreground mb-4">
+                  Exibindo {products.length} produtos de {totalCount} encontrados
+                </p>
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filtered.map((product) => (
+                  {products.map((product) => (
                     <ProductCard
                       key={product.id}
                       id={product.id}
@@ -222,23 +279,48 @@ const Catalog = () => {
                   ))}
                 </div>
 
-                {filtered.length === 0 && (
+                {products.length === 0 && (
                   <p className="text-center text-muted-foreground py-12">
                     Nenhum produto encontrado.
                   </p>
                 )}
 
-                {hasMore && activeCategory === "all" && !search.trim() && (
-                  <div className="flex justify-center mt-8">
-                    <Button
-                      variant="outline"
-                      onClick={handleLoadMore}
-                      disabled={loadingMore}
-                      className="gap-2"
-                    >
-                      {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Carregar mais produtos
-                    </Button>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            className={cn(currentPage <= 1 && "pointer-events-none opacity-50", "cursor-pointer")}
+                          />
+                        </PaginationItem>
+                        {pageNumbers.map((p, i) =>
+                          p === "ellipsis" ? (
+                            <PaginationItem key={`e-${i}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          ) : (
+                            <PaginationItem key={p}>
+                              <PaginationLink
+                                isActive={p === currentPage}
+                                onClick={() => handlePageChange(p)}
+                                className="cursor-pointer"
+                              >
+                                {p}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )
+                        )}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            className={cn(currentPage >= totalPages && "pointer-events-none opacity-50", "cursor-pointer")}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
                   </div>
                 )}
               </>
