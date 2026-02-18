@@ -1,4 +1,5 @@
 import { Search, ShoppingCart, Menu } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ interface HeaderProps {
 
 const Header = ({ search, onSearchChange }: HeaderProps) => {
   const { totalItems } = useCart();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -34,13 +36,14 @@ const Header = ({ search, onSearchChange }: HeaderProps) => {
               <SheetTitle className="text-secondary font-black text-xl">SAVIGNY</SheetTitle>
               <nav className="mt-6 flex flex-col gap-1">
                 {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    className="text-left px-3 py-2.5 rounded-md text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                  >
-                    {cat}
-                  </button>
-                ))}
+                   <button
+                     key={cat}
+                     onClick={() => navigate(`/catalog?category=${encodeURIComponent(cat)}`)}
+                     className="text-left px-3 py-2.5 rounded-md text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                   >
+                     {cat}
+                   </button>
+                 ))}
               </nav>
             </SheetContent>
           </Sheet>
@@ -111,13 +114,14 @@ const Header = ({ search, onSearchChange }: HeaderProps) => {
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-1">
             {categories.map((cat) => (
-              <button
-                key={cat}
-                className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors whitespace-nowrap border-b-2 border-transparent hover:border-primary"
-              >
-                {cat}
-              </button>
-            ))}
+               <button
+                 key={cat}
+                 onClick={() => navigate(`/catalog?category=${encodeURIComponent(cat)}`)}
+                 className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors whitespace-nowrap border-b-2 border-transparent hover:border-primary"
+               >
+                 {cat}
+               </button>
+             ))}
           </div>
         </div>
       </nav>
