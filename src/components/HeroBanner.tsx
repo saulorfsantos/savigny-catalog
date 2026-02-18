@@ -1,8 +1,10 @@
 import { ArrowRight, Clock, Package, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import ProductMarquee from "@/components/ProductMarquee";
 
 const HeroBanner = () => {
+  const navigate = useNavigate();
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary/95 to-primary/80">
       {/* Decorative circles */}
@@ -19,6 +21,7 @@ const HeroBanner = () => {
           </p>
           <Button
             size="lg"
+            onClick={() => navigate("/catalog")}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-base px-8 h-12 rounded-lg gap-2 shadow-lg shadow-primary/30"
           >
             Ver Catálogo
