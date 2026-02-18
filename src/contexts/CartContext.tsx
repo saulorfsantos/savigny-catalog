@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
 export interface CartItem {
-  id: number;
+  id: string;
   name: string;
   detail: string;
   image: string;
@@ -11,9 +11,9 @@ export interface CartItem {
 interface CartContextType {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  getQuantity: (id: number) => number;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
+  getQuantity: (id: string) => number;
   totalItems: number;
 }
 
@@ -32,11 +32,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const removeItem = useCallback((id: number) => {
+  const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const updateQuantity = useCallback((id: number, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity <= 0) {
       setItems((prev) => prev.filter((i) => i.id !== id));
     } else {
@@ -44,7 +44,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const getQuantity = useCallback((id: number) => {
+  const getQuantity = useCallback((id: string) => {
     return items.find((i) => i.id === id)?.quantity ?? 0;
   }, [items]);
 

@@ -1,24 +1,25 @@
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Package } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
-  id: number;
+  id: string;
   name: string;
   detail: string;
-  image: string;
+  image: string | null;
+  category?: string;
   tag?: string;
 }
 
-const ProductCard = ({ id, name, detail, image, tag = "Pronta Entrega" }: ProductCardProps) => {
+const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega" }: ProductCardProps) => {
   const { getQuantity, addItem, updateQuantity } = useCart();
   const quantity = getQuantity(id);
   const isInCart = quantity > 0;
 
   const increment = () => {
     if (quantity === 0) {
-      addItem({ id, name, detail, image });
+      addItem({ id, name, detail, image: image || "" });
       toast({ title: "✅ Item adicionado à cotação!", duration: 2000 });
     } else {
       updateQuantity(id, quantity + 1);
@@ -41,17 +42,26 @@ const ProductCard = ({ id, name, detail, image, tag = "Pronta Entrega" }: Produc
       "bg-card rounded-xl border border-border overflow-hidden flex flex-col transition-shadow hover:shadow-lg",
       isInCart && "ring-2 ring-primary/40"
     )}>
-      {tag && (
-        <div className="px-3 pt-3">
+      <div className="px-3 pt-3 flex items-center gap-2">
+        {tag && (
           <span className="inline-block bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
             {tag}
           </span>
-        </div>
-      )}
+        )}
+        {category && (
+          <span className="inline-block bg-secondary text-secondary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+            {category}
+          </span>
+        )}
+      </div>
 
       <div className="flex items-center justify-center p-4 flex-shrink-0">
         <div className="w-full aspect-square bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
-          <img src={image} alt={name} className="w-4/5 h-4/5 object-contain" loading="lazy" />
+          {image ? (
+            <img src={image} alt={name} className="w-4/5 h-4/5 object-contain" loading="lazy" />
+          ) : (
+            <Package className="w-12 h-12 text-muted-foreground/40" />
+          )}
         </div>
       </div>
 

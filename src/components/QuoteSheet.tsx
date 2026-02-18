@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Minus, Plus, Trash2, MessageCircle } from "lucide-react";
+import { Minus, Plus, Trash2, MessageCircle, Package } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,11 +82,15 @@ const QuoteSheet = () => {
           >
             {/* Thumbnail */}
             <div className="w-14 h-14 rounded-md bg-muted/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-              <img
-                src={item.image}
-                alt={item.name}
-                className="w-11 h-11 object-contain"
-              />
+              {item.image ? (
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  className="w-11 h-11 object-contain"
+                />
+              ) : (
+                <Package className="w-6 h-6 text-muted-foreground/40" />
+              )}
             </div>
 
             {/* Info */}
