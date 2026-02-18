@@ -1,5 +1,5 @@
 import { ShoppingCart, Menu } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
@@ -46,11 +46,11 @@ const Header = () => {
           </Sheet>
 
           {/* Logo */}
-          <div className="shrink-0">
+          <Link to="/" className="shrink-0">
             <h1 className="text-secondary font-black text-2xl md:text-3xl tracking-tight">
               SAVIGNY
             </h1>
-          </div>
+          </Link>
 
           {/* Search Bar */}
           <LiveSearch

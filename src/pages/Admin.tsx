@@ -19,8 +19,6 @@ const CATEGORY_MAP: [string, string][] = [
   ["DESCARTAVEIS", "Descartáveis"],
   ["DOMESTICO", "Higiene Pessoal"],
   ["HIGIENE PESSOAL", "Higiene Pessoal"],
-  ["EPI'S", "EPI's"],
-  ["EPIS", "EPI's"],
   ["FACILITIES", "Utility"],
   ["UTILIDADES", "Utility"],
   ["GERAL", "Outros"],
@@ -33,6 +31,7 @@ const CATEGORY_MAP: [string, string][] = [
   ["MATERIAL DE ESCRITORIO", "Office"],
   ["PERFUME", "Perfumaria"],
   ["PISCINA", "Piscina"],
+  ["EPI%", "EPI's"],
 ];
 
 export default function Admin() {
