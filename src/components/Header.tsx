@@ -8,8 +8,10 @@ import QuoteSheet from "@/components/QuoteSheet";
 import LiveSearch from "@/components/LiveSearch";
 
 const categories = [
-  "Office", "Pro Clean", "Utility", "Coffee & Break",
-  "Food Service", "Tissue & Care", "EPIs",
+  "Office", "Limpeza", "Utility", "Food Service",
+  "Descartáveis", "Higiene Pessoal", "Higiene Corporativa",
+  "EPI's", "Piscina", "Perfumaria", "Manutenção",
+  "Automotivo", "Outros",
 ];
 
 const Header = () => {
