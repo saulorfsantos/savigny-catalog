@@ -1,23 +1,18 @@
-import { Search, ShoppingCart, Menu } from "lucide-react";
+import { ShoppingCart, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useCart } from "@/contexts/CartContext";
 import QuoteSheet from "@/components/QuoteSheet";
+import LiveSearch from "@/components/LiveSearch";
 
 const categories = [
   "Office", "Pro Clean", "Utility", "Coffee & Break",
   "Food Service", "Tissue & Care", "EPIs",
 ];
 
-interface HeaderProps {
-  search: string;
-  onSearchChange: (value: string) => void;
-}
-
-const Header = ({ search, onSearchChange }: HeaderProps) => {
+const Header = () => {
   const { totalItems } = useCart();
   const navigate = useNavigate();
 
@@ -56,22 +51,10 @@ const Header = ({ search, onSearchChange }: HeaderProps) => {
           </div>
 
           {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-xl mx-4">
-            <div className="relative w-full">
-              <Input
-                placeholder="O que sua empresa precisa hoje?"
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full h-11 pr-12 rounded-lg border-2 border-muted focus-visible:ring-primary focus-visible:border-primary text-sm"
-              />
-              <Button
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 rounded-md bg-primary hover:bg-primary/90"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <LiveSearch
+            className="hidden md:block flex-1 max-w-xl mx-4"
+            inputClassName="h-11 rounded-lg border-2 border-muted focus-visible:ring-primary focus-visible:border-primary text-sm"
+          />
 
           {/* Quote Cart */}
           <Sheet>
@@ -92,20 +75,7 @@ const Header = ({ search, onSearchChange }: HeaderProps) => {
 
         {/* Mobile Search */}
         <div className="md:hidden px-4 pb-3">
-          <div className="relative">
-            <Input
-              placeholder="O que sua empresa precisa hoje?"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full h-10 pr-10 rounded-lg border-2 border-muted text-sm"
-            />
-            <Button
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-md bg-primary hover:bg-primary/90"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+          <LiveSearch inputClassName="h-10 rounded-lg border-2 border-muted text-sm" />
         </div>
       </header>
 

@@ -51,7 +51,7 @@ const Catalog = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [activeCategory, setActiveCategory] = useState(initialCategory);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
 
   const fetchProducts = useCallback(async (offset: number, reset = false) => {
     if (reset) setLoading(true);
@@ -76,18 +76,20 @@ const Catalog = () => {
     fetchProducts(0, true);
   }, [fetchProducts]);
 
-  // Sync category with URL
+  // Sync category and search with URL
   useEffect(() => {
     const cat = searchParams.get("category");
     if (cat) setActiveCategory(cat);
+    const s = searchParams.get("search");
+    if (s) setSearch(s);
   }, [searchParams]);
 
   const handleCategoryChange = (cat: string) => {
     setActiveCategory(cat);
     if (cat === "all") {
-      setSearchParams({});
+      setSearchParams(search ? { search } : {});
     } else {
-      setSearchParams({ category: cat });
+      setSearchParams(search ? { category: cat, search } : { category: cat });
     }
   };
 
@@ -114,7 +116,7 @@ const Catalog = () => {
   return (
     <div className="min-h-screen bg-background">
       <TopBar />
-      <Header search={search} onSearchChange={setSearch} />
+      <Header />
 
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl md:text-3xl font-extrabold text-foreground mb-6">
