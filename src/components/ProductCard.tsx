@@ -10,12 +10,19 @@ interface ProductCardProps {
   image: string | null;
   category?: string;
   tag?: string;
+  price?: number | null;
+  stock?: number | null;
 }
 
-const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega" }: ProductCardProps) => {
+const formatBRL = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega", price, stock }: ProductCardProps) => {
   const { getQuantity, addItem, updateQuantity } = useCart();
   const quantity = getQuantity(id);
   const isInCart = quantity > 0;
+
+  const isUnavailable = price == null || price <= 0 || (stock != null && stock <= 0);
 
   const increment = () => {
     if (quantity === 0) {
@@ -40,12 +47,18 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
   return (
     <div className={cn(
       "bg-card rounded-xl border border-border overflow-hidden flex flex-col transition-shadow hover:shadow-lg",
-      isInCart && "ring-2 ring-primary/40"
+      isInCart && "ring-2 ring-primary/40",
+      isUnavailable && "opacity-90"
     )}>
-      <div className="px-3 pt-3 flex items-center gap-2">
-        {tag && (
+      <div className="px-3 pt-3 flex items-center gap-2 flex-wrap">
+        {tag && !isUnavailable && (
           <span className="inline-block bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
             {tag}
+          </span>
+        )}
+        {isUnavailable && (
+          <span className="inline-block bg-destructive/10 text-destructive text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+            Indisponível
           </span>
         )}
         {category && (
@@ -58,7 +71,7 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
       <div className="flex items-center justify-center p-4 flex-shrink-0">
         <div className="w-full aspect-square bg-muted/30 rounded-lg flex items-center justify-center overflow-hidden">
           {image ? (
-            <img src={image} alt={name} className="w-4/5 h-4/5 object-contain" loading="lazy" />
+            <img src={image} alt={name} className={cn("w-4/5 h-4/5 object-contain", isUnavailable && "grayscale")} loading="lazy" />
           ) : (
             <Package className="w-12 h-12 text-muted-foreground/40" />
           )}
@@ -73,16 +86,25 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
       </div>
 
       <div className="px-4 pb-4 mt-auto">
-        <div className="mb-3">
-          <span className="text-xs text-muted-foreground font-medium">Condição B2B</span>
+        <div className="mb-3 min-h-[2rem] flex items-end">
+          {isUnavailable ? (
+            <span className="text-sm font-bold text-destructive uppercase tracking-wide">
+              Indisponível
+            </span>
+          ) : (
+            <span className="text-xl font-extrabold text-primary tabular-nums">
+              {formatBRL(price as number)}
+            </span>
+          )}
         </div>
 
         <div className={cn(
           "flex items-center rounded-lg overflow-hidden transition-colors",
-          isInCart ? "bg-primary" : "bg-muted"
+          isUnavailable ? "bg-muted/50 opacity-50 pointer-events-none" : isInCart ? "bg-primary" : "bg-muted"
         )}>
           <button
             onClick={decrement}
+            disabled={isUnavailable}
             className={cn(
               "p-3 transition-colors rounded-l-lg",
               isInCart ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-muted/80"
@@ -99,6 +121,7 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
           </span>
           <button
             onClick={increment}
+            disabled={isUnavailable}
             className={cn(
               "p-3 transition-colors rounded-r-lg",
               isInCart ? "text-primary-foreground hover:bg-primary/80" : "text-muted-foreground hover:bg-muted/80"
