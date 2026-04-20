@@ -125,7 +125,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
     const firstPriceIdx = priceIndices[0];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = parseCsvLine(lines[i]);
+      const values = parseCsvLine(lines[i], delimiter);
       const row: Record<string, unknown> = {};
       mapping.forEach((field, idx) => {
         if (!field || values[idx] === undefined) return;
