@@ -48,7 +48,19 @@ function parsePrice(value: string): number | null {
   return isNaN(num) ? null : num;
 }
 
-function parseCsvLine(line: string): string[] {
+function detectDelimiter(headerLine: string): "," | ";" | "\t" {
+  const counts = {
+    ";": (headerLine.match(/;/g) || []).length,
+    ",": (headerLine.match(/,/g) || []).length,
+    "\t": (headerLine.match(/\t/g) || []).length,
+  };
+  // Prefer semicolon (PT-BR standard) when present
+  if (counts[";"] >= counts[","] && counts[";"] > 0) return ";";
+  if (counts["\t"] > counts[","]) return "\t";
+  return ",";
+}
+
+function parseCsvLine(line: string, delimiter: string): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -56,7 +68,7 @@ function parseCsvLine(line: string): string[] {
     const char = line[i];
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if ((char === "," || char === ";") && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(current.trim());
       current = "";
     } else {
@@ -91,7 +103,8 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       return;
     }
 
-    const headers = parseCsvLine(lines[0]);
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = parseCsvLine(lines[0], delimiter);
     const mapping: (string | null)[] = headers.map(normalizeHeader);
 
     const mappedFields = mapping.filter(Boolean);
@@ -112,7 +125,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
     const firstPriceIdx = priceIndices[0];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = parseCsvLine(lines[i]);
+      const values = parseCsvLine(lines[i], delimiter);
       const row: Record<string, unknown> = {};
       mapping.forEach((field, idx) => {
         if (!field || values[idx] === undefined) return;
