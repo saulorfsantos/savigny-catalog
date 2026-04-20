@@ -293,7 +293,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
           }`}>
             {result.errors > 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
             <span>
-              {result.inserted} de {result.total} produtos importados.
+              {result.updated} atualizados, {result.inserted} novos (de {result.total} no CSV).
               {result.errors > 0 && ` ${result.errors} com erro.`}
             </span>
           </div>
