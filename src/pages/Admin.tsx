@@ -120,8 +120,11 @@ export default function Admin() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex flex-wrap gap-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <CsvImporter onImportComplete={fetchProducts} />
+          <BulkImageFetcher onComplete={fetchProducts} />
+        </div>
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             onClick={handleMigrateCategories}
