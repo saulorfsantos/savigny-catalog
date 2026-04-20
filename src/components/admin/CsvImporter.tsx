@@ -159,19 +159,30 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       toast({ title: "Itens FARDO ignorados", description: `${skippedFardo} produto(s) do tipo FARDO foram ignorados na importação.` });
     }
 
-    // Insert in batches of 100
+    // Upsert in batches: separate rows with EAN (conflict on ean) from rows without EAN (conflict on name+category)
+    const withEan = rows.filter((r) => r.ean);
+    const withoutEan = rows.filter((r) => !r.ean);
     let inserted = 0;
     let errors = 0;
     const batchSize = 100;
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
-      const { error } = await supabase.from("products").insert(batch as any);
-      if (error) {
-        errors += batch.length;
-      } else {
-        inserted += batch.length;
+
+    const upsertBatches = async (data: Record<string, unknown>[], onConflict: string) => {
+      for (let i = 0; i < data.length; i += batchSize) {
+        const batch = data.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from("products")
+          .upsert(batch as any, { onConflict, ignoreDuplicates: false });
+        if (error) {
+          console.error("Upsert error:", error);
+          errors += batch.length;
+        } else {
+          inserted += batch.length;
+        }
       }
-    }
+    };
+
+    await upsertBatches(withEan, "ean");
+    await upsertBatches(withoutEan, "name,category");
 
     setResult({ total: rows.length, inserted, errors });
     setImporting(false);
