@@ -24,6 +24,7 @@ export type Database = {
           image_url: string | null
           name: string
           price: number | null
+          stock: number | null
           unit: string
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           image_url?: string | null
           name: string
           price?: number | null
+          stock?: number | null
           unit?: string
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           image_url?: string | null
           name?: string
           price?: number | null
+          stock?: number | null
           unit?: string
         }
         Relationships: []
