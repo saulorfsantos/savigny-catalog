@@ -227,7 +227,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       }
     }
 
-    setResult({ total: rows.length, inserted, errors });
+    setResult({ total: rows.length, inserted, updated, errors });
     setImporting(false);
     if (inserted > 0) {
       toast({ title: "Importação concluída!", description: `${inserted} produtos importados com sucesso.` });
