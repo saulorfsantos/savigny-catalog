@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Images, Loader2 } from "lucide-react";
 
-const DAILY_LIMIT = 500;
+const DAILY_LIMIT = 100;
 
 export default function BulkImageFetcher({ onComplete }: { onComplete: () => void }) {
   const [running, setRunning] = useState(false);
