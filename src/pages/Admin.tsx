@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import CsvImporter from "@/components/admin/CsvImporter";
+import BulkImageFetcher from "@/components/admin/BulkImageFetcher";
 import ProductGrid from "@/components/admin/ProductGrid";
 import { LogOut, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
