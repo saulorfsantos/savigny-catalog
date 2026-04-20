@@ -82,6 +82,7 @@ function parseCsvLine(line: string, delimiter: string): string[] {
 interface ImportResult {
   total: number;
   inserted: number;
+  updated: number;
   errors: number;
 }
 
