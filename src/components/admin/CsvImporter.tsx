@@ -17,12 +17,21 @@ const COLUMN_MAP: Record<string, string> = {
   preço: "price",
   preco: "price",
   price: "price",
+  preço_final: "price",
+  preco_final: "price",
+  "preço final": "price",
+  "preco final": "price",
   ean: "ean",
   "código de barras": "ean",
   "codigo de barras": "ean",
   un: "unit",
   unit: "unit",
   unidade: "unit",
+  qntd: "stock",
+  qtd: "stock",
+  quantidade: "stock",
+  estoque: "stock",
+  stock: "stock",
 };
 
 function normalizeHeader(header: string): string | null {
@@ -93,23 +102,48 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
     }
 
     const rows: Record<string, unknown>[] = [];
+    let skippedFardo = 0;
+    // Track which mapped fields the price column appears in — we only want the FIRST price column.
+    let priceColumnUsed = false;
+    const priceIndices: number[] = [];
+    mapping.forEach((field, idx) => {
+      if (field === "price") priceIndices.push(idx);
+    });
+    const firstPriceIdx = priceIndices[0];
+
     for (let i = 1; i < lines.length; i++) {
       const values = parseCsvLine(lines[i]);
       const row: Record<string, unknown> = {};
       mapping.forEach((field, idx) => {
-        if (field && values[idx] !== undefined) {
-          if (field === "price") {
-            row[field] = parsePrice(values[idx]);
-          } else {
-            row[field] = values[idx].trim() || null;
+        if (!field || values[idx] === undefined) return;
+        if (field === "price") {
+          // Only consume the first price column, ignore the others
+          if (idx === firstPriceIdx) {
+            row.price = parsePrice(values[idx]);
           }
+        } else if (field === "stock") {
+          const n = parseInt(values[idx].replace(/[^\d-]/g, ""), 10);
+          row.stock = isNaN(n) ? 0 : n;
+        } else {
+          row[field] = values[idx].trim() || null;
         }
       });
-      if (row.name) {
-        if (!row.category) row.category = "Geral";
-        if (!row.unit) row.unit = "UN";
-        rows.push(row);
+      if (!row.name) continue;
+      // Skip FARDO items entirely
+      const nameStr = String(row.name).toUpperCase();
+      const unitStr = String(row.unit ?? "").toUpperCase();
+      if (unitStr === "FARDO" || nameStr.includes("FARDO")) {
+        skippedFardo++;
+        continue;
       }
+      if (!row.category) row.category = "Outros";
+      if (!row.unit) row.unit = "UN";
+      if (row.stock === undefined) row.stock = 0;
+      rows.push(row);
+    }
+
+    if (skippedFardo > 0) {
+      toast({ title: "Itens FARDO ignorados", description: `${skippedFardo} produto(s) do tipo FARDO foram ignorados na importação.` });
     }
 
     // Insert in batches of 100
@@ -159,7 +193,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
           Importador de CSV
         </CardTitle>
         <CardDescription>
-          Arraste seu arquivo .csv ou clique para selecionar. Colunas aceitas: Descrição, Grupo, Preço, EAN, UN.
+          Arraste seu arquivo .csv ou clique para selecionar. Colunas aceitas: Descrição, Grupo, Preço/Preço_Final, EAN, UN, Qntd. Itens "FARDO" são ignorados automaticamente.
         </CardDescription>
       </CardHeader>
       <CardContent>

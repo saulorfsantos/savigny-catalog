@@ -22,6 +22,8 @@ interface Product {
   category: string;
   unit: string;
   image_url: string | null;
+  price: number | null;
+  stock: number | null;
 }
 
 const PAGE_SIZE = 24;
@@ -87,7 +89,7 @@ const Catalog = () => {
     // Build data query
     let dataQuery = supabase
       .from("products")
-      .select("id, name, category, unit, image_url")
+      .select("id, name, category, unit, image_url, price, stock")
       .eq("available", true)
       .order("name")
       .range(offset, offset + PAGE_SIZE - 1);
@@ -272,6 +274,8 @@ const Catalog = () => {
                       detail={product.unit}
                       image={product.image_url}
                       category={product.category}
+                      price={product.price}
+                      stock={product.stock}
                     />
                   ))}
                 </div>
