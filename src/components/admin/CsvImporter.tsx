@@ -82,6 +82,7 @@ function parseCsvLine(line: string, delimiter: string): string[] {
 interface ImportResult {
   total: number;
   inserted: number;
+  updated: number;
   errors: number;
 }
 
@@ -159,35 +160,77 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       toast({ title: "Itens FARDO ignorados", description: `${skippedFardo} produto(s) do tipo FARDO foram ignorados na importação.` });
     }
 
-    // Upsert in batches: separate rows with EAN (conflict on ean) from rows without EAN (conflict on name+category)
-    const withEan = rows.filter((r) => r.ean);
-    const withoutEan = rows.filter((r) => !r.ean);
+    // Strategy: SELECT existing products → UPDATE only price/stock (preserves image_url)
+    // or INSERT new ones. NEVER touches image_url on existing rows.
     let inserted = 0;
+    let updated = 0;
     let errors = 0;
-    const batchSize = 100;
 
-    const upsertBatches = async (data: Record<string, unknown>[], onConflict: string) => {
-      for (let i = 0; i < data.length; i += batchSize) {
-        const batch = data.slice(i, i + batchSize);
-        const { error } = await supabase
-          .from("products")
-          .upsert(batch as any, { onConflict, ignoreDuplicates: false });
-        if (error) {
-          console.error("Upsert error:", error);
-          errors += batch.length;
-        } else {
-          inserted += batch.length;
-        }
+    // 1. Fetch existing products to match by EAN or name+category
+    const eans = rows.map((r) => r.ean).filter(Boolean) as string[];
+    const names = rows.map((r) => r.name).filter(Boolean) as string[];
+
+    const { data: existingByEan } = eans.length
+      ? await supabase.from("products").select("id, ean, name, category").in("ean", eans)
+      : { data: [] as any[] };
+    const { data: existingByName } = names.length
+      ? await supabase.from("products").select("id, ean, name, category").in("name", names)
+      : { data: [] as any[] };
+
+    const eanMap = new Map<string, string>();
+    (existingByEan ?? []).forEach((p: any) => { if (p.ean) eanMap.set(p.ean, p.id); });
+    const nameKey = (n: string, c: string) => `${n}||${c}`;
+    const nameMap = new Map<string, string>();
+    (existingByName ?? []).forEach((p: any) => { nameMap.set(nameKey(p.name, p.category), p.id); });
+
+    const toInsert: Record<string, unknown>[] = [];
+    const toUpdate: { id: string; price: unknown; stock: unknown }[] = [];
+
+    for (const row of rows) {
+      let existingId: string | undefined;
+      if (row.ean && eanMap.has(row.ean as string)) {
+        existingId = eanMap.get(row.ean as string);
+      } else if (nameMap.has(nameKey(row.name as string, row.category as string))) {
+        existingId = nameMap.get(nameKey(row.name as string, row.category as string));
       }
-    };
+      if (existingId) {
+        toUpdate.push({ id: existingId, price: row.price ?? null, stock: row.stock ?? 0 });
+      } else {
+        toInsert.push(row);
+      }
+    }
 
-    await upsertBatches(withEan, "ean");
-    await upsertBatches(withoutEan, "name,category");
+    // 2. Batch INSERT new products
+    const batchSize = 100;
+    for (let i = 0; i < toInsert.length; i += batchSize) {
+      const batch = toInsert.slice(i, i + batchSize);
+      const { error } = await supabase.from("products").insert(batch as any);
+      if (error) {
+        console.error("Insert error:", error);
+        errors += batch.length;
+      } else {
+        inserted += batch.length;
+      }
+    }
 
-    setResult({ total: rows.length, inserted, errors });
+    // 3. UPDATE existing products — only price + stock, preserving image_url & all other fields
+    for (const u of toUpdate) {
+      const { error } = await supabase
+        .from("products")
+        .update({ price: u.price as number | null, stock: u.stock as number })
+        .eq("id", u.id);
+      if (error) {
+        console.error("Update error:", error);
+        errors++;
+      } else {
+        updated++;
+      }
+    }
+
+    setResult({ total: rows.length, inserted, updated, errors });
     setImporting(false);
-    if (inserted > 0) {
-      toast({ title: "Importação concluída!", description: `${inserted} produtos importados com sucesso.` });
+    if (inserted > 0 || updated > 0) {
+      toast({ title: "Importação concluída!", description: `${updated} atualizados, ${inserted} novos. Imagens preservadas.` });
       onImportComplete();
     }
   }, [toast, onImportComplete]);
@@ -250,7 +293,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
           }`}>
             {result.errors > 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
             <span>
-              {result.inserted} de {result.total} produtos importados.
+              {result.updated} atualizados, {result.inserted} novos (de {result.total} no CSV).
               {result.errors > 0 && ` ${result.errors} com erro.`}
             </span>
           </div>
