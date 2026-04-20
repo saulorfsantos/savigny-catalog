@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import CsvImporter from "@/components/admin/CsvImporter";
+import BulkImageFetcher from "@/components/admin/BulkImageFetcher";
 import ProductGrid from "@/components/admin/ProductGrid";
 import { LogOut, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -119,8 +120,11 @@ export default function Admin() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex flex-wrap gap-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <CsvImporter onImportComplete={fetchProducts} />
+          <BulkImageFetcher onComplete={fetchProducts} />
+        </div>
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             onClick={handleMigrateCategories}
