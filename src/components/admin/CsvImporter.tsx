@@ -103,7 +103,8 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       return;
     }
 
-    const headers = parseCsvLine(lines[0]);
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = parseCsvLine(lines[0], delimiter);
     const mapping: (string | null)[] = headers.map(normalizeHeader);
 
     const mappedFields = mapping.filter(Boolean);
