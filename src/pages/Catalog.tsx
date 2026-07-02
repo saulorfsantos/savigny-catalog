@@ -19,7 +19,7 @@ import {
 interface Product {
   id: string;
   name: string;
-  category: string;
+  category: string | null;
   unit: string;
   image_url: string | null;
   price: number | null;
@@ -44,7 +44,8 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   outros: LayoutGrid,
 };
 
-function getIconForCategory(cat: string) {
+function getIconForCategory(cat: string | null | undefined) {
+  if (!cat) return Sparkles;
   return CATEGORY_ICONS[cat.toLowerCase().trim()] || Sparkles;
 }
 
@@ -69,7 +70,9 @@ const Catalog = () => {
         .select("category")
         .eq("available", true);
       if (data) {
-        const cats = [...new Set(data.map((p) => p.category))].sort();
+        const cats = [...new Set(data.map((p) => p.category))]
+          .filter((c): c is string => !!c && c.trim() !== "")
+          .sort();
         setCategories(cats);
       }
     })();
