@@ -21,6 +21,9 @@ dist-ssr
 # Supabase CLI temp files
 supabase/.temp/
 
+# Vercel
+.vercel
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

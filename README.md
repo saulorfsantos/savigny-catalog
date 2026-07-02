@@ -55,8 +55,10 @@ Variáveis de ambiente necessárias:
 
 Configure também em **Supabase → Authentication → URL Configuration**:
 
-- Site URL: URL de produção da Vercel
-- Redirect URLs: `https://seu-dominio.vercel.app/reset-password`
+- Site URL: `https://savigny-catalog.vercel.app`
+- Redirect URLs: `https://savigny-catalog.vercel.app/reset-password`
+
+**Produção:** https://savigny-catalog.vercel.app
 
 ## Scripts
 
