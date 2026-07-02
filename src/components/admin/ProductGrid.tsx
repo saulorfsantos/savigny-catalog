@@ -20,11 +20,13 @@ interface Props {
   products: Product[];
   totalCount: number;
   page: number;
+  search: string;
+  onSearchChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onRefresh: () => void;
 }
 
-export default function ProductGrid({ products, totalCount, page, onPageChange, onRefresh }: Props) {
+export default function ProductGrid({ products, totalCount, page, search, onSearchChange, onPageChange, onRefresh }: Props) {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState({ name: "", category: "", price: "" });
   const [saving, setSaving] = useState(false);
@@ -245,12 +247,21 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   return (
     <>
       <div className="rounded-lg border bg-card">
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex flex-col gap-3 p-4 border-b sm:flex-row sm:items-center sm:justify-between">
           <h3 className="font-semibold text-foreground flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
             Produtos Cadastrados
             <span className="text-sm font-normal text-muted-foreground">({totalCount})</span>
           </h3>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Buscar por nome..."
+              className="pl-9"
+            />
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -266,7 +277,9 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
             {products.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                  Nenhum produto cadastrado ainda.
+                  {search.trim()
+                    ? "Nenhum produto encontrado para esta busca."
+                    : "Nenhum produto cadastrado ainda."}
                 </TableCell>
               </TableRow>
             ) : (

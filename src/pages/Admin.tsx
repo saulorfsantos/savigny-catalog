@@ -42,7 +42,18 @@ export default function Admin() {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -62,19 +73,26 @@ export default function Admin() {
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { count } = await supabase
+    let countQuery = supabase
       .from("products")
       .select("*", { count: "exact", head: true });
 
-    const { data } = await supabase
+    let dataQuery = supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
+
+    if (search) {
+      countQuery = countQuery.ilike("name", `%${search}%`);
+      dataQuery = dataQuery.ilike("name", `%${search}%`);
+    }
+
+    const { count } = await countQuery;
+    const { data } = await dataQuery.range(from, to);
 
     setTotalCount(count ?? 0);
     setProducts(data ?? []);
-  }, [page]);
+  }, [page, search]);
 
   useEffect(() => {
     if (session) fetchProducts();
@@ -139,6 +157,8 @@ export default function Admin() {
           products={products}
           totalCount={totalCount}
           page={page}
+          search={searchInput}
+          onSearchChange={setSearchInput}
           onPageChange={setPage}
           onRefresh={fetchProducts}
         />
