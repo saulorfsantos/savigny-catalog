@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Package, Wand2, Loader2, Search, Upload } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { CATEGORY_OPTIONS } from "@/lib/categories";
 
 type Product = Tables<"products">;
 
@@ -37,7 +39,26 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   // Upload state
   const [uploading, setUploading] = useState(false);
 
+  // Inline category update state
+  const [updatingCategoryId, setUpdatingCategoryId] = useState<string | null>(null);
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const handleCategoryChange = async (product: Product, category: string) => {
+    if (category === product.category) return;
+    setUpdatingCategoryId(product.id);
+    const { error } = await supabase
+      .from("products")
+      .update({ category })
+      .eq("id", product.id);
+    if (error) {
+      toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Categoria atualizada!", description: `${product.name} → ${category}` });
+      onRefresh();
+    }
+    setUpdatingCategoryId(null);
+  };
 
   const openEdit = (p: Product) => {
     setEditProduct(p);
@@ -263,7 +284,30 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
                     )}
                   </TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.category}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={p.category ?? undefined}
+                      onValueChange={(value) => handleCategoryChange(p, value)}
+                      disabled={updatingCategoryId === p.id}
+                    >
+                      <SelectTrigger className="h-9 w-44">
+                        {updatingCategoryId === p.id ? (
+                          <span className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Salvando...
+                          </span>
+                        ) : (
+                          <SelectValue placeholder="Selecionar..." />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell className="text-right">{formatPrice(p.price)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
@@ -337,7 +381,21 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
             </div>
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} />
+              <Select
+                value={editForm.category || undefined}
+                onValueChange={(value) => setEditForm((f) => ({ ...f, category: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar categoria..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Preço</Label>
