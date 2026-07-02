@@ -160,15 +160,18 @@ const LiveSearch = ({ className, inputClassName, placeholder = "O que sua empres
                   {highlightMatch(item.name, query)}
                 </p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-muted-foreground capitalize">{item.category}</span>
-                  {item.price != null && (
-                    <>
-                      <span className="text-xs text-muted-foreground">·</span>
-                      <span className="text-xs font-semibold text-primary">
-                        R$ {item.price.toFixed(2).replace(".", ",")}
-                      </span>
-                    </>
+                  {item.category && (
+                    <span className="text-xs text-muted-foreground capitalize">{item.category}</span>
                   )}
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className={cn(
+                    "text-xs font-semibold",
+                    item.price != null ? "text-primary" : "text-amber-700 dark:text-amber-400"
+                  )}>
+                    {item.price != null
+                      ? `R$ ${item.price.toFixed(2).replace(".", ",")}`
+                      : "Consulte"}
+                  </span>
                 </div>
               </div>
 

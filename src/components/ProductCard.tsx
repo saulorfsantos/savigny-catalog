@@ -8,7 +8,7 @@ interface ProductCardProps {
   name: string;
   detail: string;
   image: string | null;
-  category?: string;
+  category?: string | null;
   tag?: string;
   price?: number | null;
   stock?: number | null;
@@ -22,7 +22,10 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
   const quantity = getQuantity(id);
   const isInCart = quantity > 0;
 
-  const isUnavailable = price == null || price <= 0 || (stock != null && stock <= 0);
+  const isPriceOnRequest = price == null;
+  const isInvalidPrice = price != null && price <= 0;
+  const isOutOfStock = stock != null && stock <= 0;
+  const isUnavailable = isInvalidPrice || isOutOfStock;
 
   const increment = () => {
     if (quantity === 0) {
@@ -51,9 +54,14 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
       isUnavailable && "opacity-90"
     )}>
       <div className="px-3 pt-3 flex items-center gap-2 flex-wrap">
-        {tag && !isUnavailable && (
+        {tag && !isUnavailable && !isPriceOnRequest && (
           <span className="inline-block bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
             {tag}
+          </span>
+        )}
+        {isPriceOnRequest && !isUnavailable && (
+          <span className="inline-block bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+            Consulte
           </span>
         )}
         {isUnavailable && (
@@ -90,6 +98,10 @@ const ProductCard = ({ id, name, detail, image, category, tag = "Pronta Entrega"
           {isUnavailable ? (
             <span className="text-sm font-bold text-destructive uppercase tracking-wide">
               Indisponível
+            </span>
+          ) : isPriceOnRequest ? (
+            <span className="text-lg font-bold text-amber-700 dark:text-amber-400">
+              Consulte
             </span>
           ) : (
             <span className="text-xl font-extrabold text-primary tabular-nums">

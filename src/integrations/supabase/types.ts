@@ -17,7 +17,8 @@ export type Database = {
       products: {
         Row: {
           available: boolean
-          category: string
+          category: string | null
+          codigo: string | null
           created_at: string
           ean: string | null
           id: string
@@ -29,7 +30,8 @@ export type Database = {
         }
         Insert: {
           available?: boolean
-          category: string
+          category?: string | null
+          codigo?: string | null
           created_at?: string
           ean?: string | null
           id?: string
@@ -41,7 +43,8 @@ export type Database = {
         }
         Update: {
           available?: boolean
-          category?: string
+          category?: string | null
+          codigo?: string | null
           created_at?: string
           ean?: string | null
           id?: string

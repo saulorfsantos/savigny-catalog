@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react";
@@ -11,6 +10,8 @@ const COLUMN_MAP: Record<string, string> = {
   description: "name",
   name: "name",
   nome: "name",
+  codigo: "codigo",
+  código: "codigo",
   grupo: "category",
   category: "category",
   categoria: "category",
@@ -36,13 +37,11 @@ const COLUMN_MAP: Record<string, string> = {
 
 function normalizeHeader(header: string): string | null {
   const key = header.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  // Also try the original lowered version (with accents)
   return COLUMN_MAP[key] ?? COLUMN_MAP[header.trim().toLowerCase()] ?? null;
 }
 
 function parsePrice(value: string): number | null {
   if (!value || !value.trim()) return null;
-  // Remove currency symbols and spaces, treat comma as decimal separator
   const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : num;
@@ -54,7 +53,6 @@ function detectDelimiter(headerLine: string): "," | ";" | "\t" {
     ",": (headerLine.match(/,/g) || []).length,
     "\t": (headerLine.match(/\t/g) || []).length,
   };
-  // Prefer semicolon (PT-BR standard) when present
   if (counts[";"] >= counts[","] && counts[";"] > 0) return ";";
   if (counts["\t"] > counts[","]) return "\t";
   return ",";
@@ -83,7 +81,18 @@ interface ImportResult {
   total: number;
   inserted: number;
   updated: number;
+  skipped: number;
   errors: number;
+}
+
+interface ParsedRow {
+  codigo: string;
+  name: string;
+  unit: string;
+  price: number | null;
+  ean: string | null;
+  category: string | null;
+  stock: number | null;
 }
 
 export default function CsvImporter({ onImportComplete }: { onImportComplete: () => void }) {
@@ -97,7 +106,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
     setResult(null);
 
     const text = await file.text();
-    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
     if (lines.length < 2) {
       toast({ title: "Arquivo vazio", description: "O CSV precisa ter pelo menos um cabeçalho e uma linha de dados.", variant: "destructive" });
       setImporting(false);
@@ -114,97 +123,115 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       setImporting(false);
       return;
     }
+    if (!mappedFields.includes("codigo")) {
+      toast({ title: "Coluna obrigatória não encontrada", description: "O CSV precisa ter uma coluna 'Codigo'.", variant: "destructive" });
+      setImporting(false);
+      return;
+    }
 
-    const rows: Record<string, unknown>[] = [];
-    let skippedFardo = 0;
-    // Track which mapped fields the price column appears in — we only want the FIRST price column.
-    let priceColumnUsed = false;
     const priceIndices: number[] = [];
     mapping.forEach((field, idx) => {
       if (field === "price") priceIndices.push(idx);
     });
     const firstPriceIdx = priceIndices[0];
 
+    const seenCodigo = new Set<string>();
+    const rows: ParsedRow[] = [];
+    let skipped = 0;
+    let skippedFardo = 0;
+
     for (let i = 1; i < lines.length; i++) {
       const values = parseCsvLine(lines[i], delimiter);
-      const row: Record<string, unknown> = {};
+      const raw: Record<string, unknown> = {};
       mapping.forEach((field, idx) => {
         if (!field || values[idx] === undefined) return;
         if (field === "price") {
-          // Only consume the first price column, ignore the others
-          if (idx === firstPriceIdx) {
-            row.price = parsePrice(values[idx]);
-          }
+          if (idx === firstPriceIdx) raw.price = parsePrice(values[idx]);
         } else if (field === "stock") {
-          const n = parseInt(values[idx].replace(/[^\d-]/g, ""), 10);
-          row.stock = isNaN(n) ? 0 : n;
+          const trimmed = values[idx].trim();
+          if (trimmed) {
+            const n = parseInt(trimmed.replace(/[^\d-]/g, ""), 10);
+            raw.stock = isNaN(n) ? null : n;
+          }
         } else {
-          row[field] = values[idx].trim() || null;
+          raw[field] = values[idx].trim() || null;
         }
       });
-      if (!row.name) continue;
-      // Skip FARDO items entirely
-      const nameStr = String(row.name).toUpperCase();
-      const unitStr = String(row.unit ?? "").toUpperCase();
+
+      const codigo = String(raw.codigo ?? "").trim();
+      const name = String(raw.name ?? "").trim();
+      if (!codigo || !name) {
+        skipped++;
+        continue;
+      }
+      if (seenCodigo.has(codigo)) {
+        skipped++;
+        continue;
+      }
+
+      const nameStr = name.toUpperCase();
+      const unitStr = String(raw.unit ?? "UN").toUpperCase();
       if (unitStr === "FARDO" || nameStr.includes("FARDO")) {
         skippedFardo++;
         continue;
       }
-      if (!row.category) row.category = "Outros";
-      if (!row.unit) row.unit = "UN";
-      if (row.stock === undefined) row.stock = 0;
-      rows.push(row);
+
+      seenCodigo.add(codigo);
+      rows.push({
+        codigo,
+        name,
+        unit: String(raw.unit ?? "UN").trim() || "UN",
+        price: (raw.price as number | null | undefined) ?? null,
+        ean: raw.ean ? String(raw.ean).trim() : null,
+        category: raw.category ? String(raw.category).trim() : null,
+        stock: (raw.stock as number | null | undefined) ?? null,
+      });
     }
 
     if (skippedFardo > 0) {
       toast({ title: "Itens FARDO ignorados", description: `${skippedFardo} produto(s) do tipo FARDO foram ignorados na importação.` });
     }
 
-    // Strategy: SELECT existing products → UPDATE only price/stock (preserves image_url)
-    // or INSERT new ones. NEVER touches image_url on existing rows.
     let inserted = 0;
     let updated = 0;
     let errors = 0;
 
-    // 1. Fetch existing products to match by EAN or name+category
-    const eans = rows.map((r) => r.ean).filter(Boolean) as string[];
-    const names = rows.map((r) => r.name).filter(Boolean) as string[];
+    const codigos = rows.map((r) => r.codigo);
+    const { data: existing } = await supabase
+      .from("products")
+      .select("id, codigo")
+      .in("codigo", codigos);
 
-    const { data: existingByEan } = eans.length
-      ? await supabase.from("products").select("id, ean, name, category").in("ean", eans)
-      : { data: [] as any[] };
-    const { data: existingByName } = names.length
-      ? await supabase.from("products").select("id, ean, name, category").in("name", names)
-      : { data: [] as any[] };
+    const codigoMap = new Map<string, string>();
+    (existing ?? []).forEach((p) => {
+      if (p.codigo) codigoMap.set(p.codigo, p.id);
+    });
 
-    const eanMap = new Map<string, string>();
-    (existingByEan ?? []).forEach((p: any) => { if (p.ean) eanMap.set(p.ean, p.id); });
-    const nameKey = (n: string, c: string) => `${n}||${c}`;
-    const nameMap = new Map<string, string>();
-    (existingByName ?? []).forEach((p: any) => { nameMap.set(nameKey(p.name, p.category), p.id); });
-
-    const toInsert: Record<string, unknown>[] = [];
-    const toUpdate: { id: string; price: unknown; stock: unknown }[] = [];
+    const toInsert: ParsedRow[] = [];
+    const toUpdate: { id: string; row: ParsedRow }[] = [];
 
     for (const row of rows) {
-      let existingId: string | undefined;
-      if (row.ean && eanMap.has(row.ean as string)) {
-        existingId = eanMap.get(row.ean as string);
-      } else if (nameMap.has(nameKey(row.name as string, row.category as string))) {
-        existingId = nameMap.get(nameKey(row.name as string, row.category as string));
-      }
+      const existingId = codigoMap.get(row.codigo);
       if (existingId) {
-        toUpdate.push({ id: existingId, price: row.price ?? null, stock: row.stock ?? 0 });
+        toUpdate.push({ id: existingId, row });
       } else {
         toInsert.push(row);
       }
     }
 
-    // 2. Batch INSERT new products
     const batchSize = 100;
     for (let i = 0; i < toInsert.length; i += batchSize) {
-      const batch = toInsert.slice(i, i + batchSize);
-      const { error } = await supabase.from("products").insert(batch as any);
+      const batch = toInsert.slice(i, i + batchSize).map((r) => ({
+        codigo: r.codigo,
+        name: r.name,
+        unit: r.unit,
+        price: r.price,
+        ean: r.ean,
+        category: r.category,
+        stock: r.stock,
+        available: true,
+      }));
+      const { error } = await supabase.from("products").insert(batch);
       if (error) {
         console.error("Insert error:", error);
         errors += batch.length;
@@ -213,12 +240,16 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       }
     }
 
-    // 3. UPDATE existing products — only price + stock, preserving image_url & all other fields
-    for (const u of toUpdate) {
+    for (const { id, row } of toUpdate) {
       const { error } = await supabase
         .from("products")
-        .update({ price: u.price as number | null, stock: u.stock as number })
-        .eq("id", u.id);
+        .update({
+          name: row.name,
+          price: row.price,
+          ean: row.ean,
+          unit: row.unit,
+        })
+        .eq("id", id);
       if (error) {
         console.error("Update error:", error);
         errors++;
@@ -227,10 +258,13 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
       }
     }
 
-    setResult({ total: rows.length, inserted, updated, errors });
+    setResult({ total: rows.length, inserted, updated, skipped, errors });
     setImporting(false);
     if (inserted > 0 || updated > 0) {
-      toast({ title: "Importação concluída!", description: `${updated} atualizados, ${inserted} novos. Imagens preservadas.` });
+      toast({
+        title: "Importação concluída!",
+        description: `${updated} atualizados, ${inserted} novos. Imagens e categorias preservadas.`,
+      });
       onImportComplete();
     }
   }, [toast, onImportComplete]);
@@ -260,7 +294,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
           Importador de CSV
         </CardTitle>
         <CardDescription>
-          Arraste seu arquivo .csv ou clique para selecionar. Colunas aceitas: Descrição, Grupo, Preço/Preço_Final, EAN, UN, Qntd. Itens "FARDO" são ignorados automaticamente.
+          Colunas: Codigo (obrigatório), Descrição, Grupo, Preço Final, EAN, UN, Qntd. Re-import atualiza nome, preço, EAN e unidade — preserva imagens, categoria e estoque. Itens FARDO são ignorados.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -294,6 +328,7 @@ export default function CsvImporter({ onImportComplete }: { onImportComplete: ()
             {result.errors > 0 ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
             <span>
               {result.updated} atualizados, {result.inserted} novos (de {result.total} no CSV).
+              {result.skipped > 0 && ` ${result.skipped} ignorados.`}
               {result.errors > 0 && ` ${result.errors} com erro.`}
             </span>
           </div>

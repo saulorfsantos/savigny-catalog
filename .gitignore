@@ -21,6 +21,10 @@ dist-ssr
 # Supabase CLI temp files
 supabase/.temp/
 
+# Local catalog data (ERP export)
+catalogo_savigny.csv
+data/*.csv
+
 # Vercel
 .vercel
 
