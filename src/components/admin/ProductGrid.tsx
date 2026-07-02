@@ -13,22 +13,6 @@ import type { Tables } from "@/integrations/supabase/types";
 type Product = Tables<"products">;
 
 const PAGE_SIZE = 50;
-const DAILY_LIMIT = 100;
-
-function getTodayKey() {
-  return `img_search_count_${new Date().toISOString().slice(0, 10)}`;
-}
-
-function getDailyCount(): number {
-  return parseInt(localStorage.getItem(getTodayKey()) || "0", 10);
-}
-
-function incrementDailyCount(): number {
-  const key = getTodayKey();
-  const next = getDailyCount() + 1;
-  localStorage.setItem(key, String(next));
-  return next;
-}
 
 interface Props {
   products: Product[];
@@ -49,7 +33,6 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<{ url: string; thumbnail: string | null } | null>(null);
   const [savingImage, setSavingImage] = useState(false);
-  const [dailyCount, setDailyCount] = useState(getDailyCount());
 
   // Upload state
   const [uploading, setUploading] = useState(false);
@@ -58,7 +41,7 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
 
   const openEdit = (p: Product) => {
     setEditProduct(p);
-    setEditForm({ name: p.name, category: p.category, price: p.price?.toString() ?? "" });
+    setEditForm({ name: p.name, category: p.category ?? "", price: p.price?.toString() ?? "" });
   };
 
   const handleSave = async () => {
@@ -99,10 +82,6 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
   // Search using Serper
   const handleSearch = async () => {
     if (!imageModal) return;
-    if (getDailyCount() >= DAILY_LIMIT) {
-      toast({ title: "Limite diário atingido", description: `Você já fez ${DAILY_LIMIT} buscas hoje.`, variant: "destructive" });
-      return;
-    }
 
     setSearching(true);
     setSearchResult(null);
@@ -113,7 +92,10 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ query: imageModal.searchTerm, ean: imageModal.product.ean }),
+        body: JSON.stringify({
+          query: imageModal.searchTerm,
+          ean: imageModal.product.ean,
+        }),
       });
 
       const data = await resp.json();
@@ -121,9 +103,6 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
         toast({ title: "Erro na busca", description: data.error || "Erro desconhecido", variant: "destructive" });
         return;
       }
-
-      const newCount = incrementDailyCount();
-      setDailyCount(newCount);
 
       if (data.imageUrl) {
         setSearchResult({ url: data.imageUrl, thumbnail: data.thumbnail });
@@ -137,23 +116,47 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
     }
   };
 
-  // Save found image URL to product
+  // Download preview image and store in Supabase Storage
   const handleSaveImageUrl = async (url: string) => {
     if (!imageModal) return;
     setSavingImage(true);
-    const { error } = await supabase
-      .from("products")
-      .update({ image_url: url })
-      .eq("id", imageModal.product.id);
-    if (error) {
-      toast({ title: "Erro ao salvar imagem", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Imagem salva!" });
-      setImageModal(null);
-      setSearchResult(null);
-      onRefresh();
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          productId: imageModal.product.id,
+          sourceImageUrl: url,
+        }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok || !data.imageUrl) {
+        toast({ title: "Erro ao salvar imagem", description: data.error || "Falha ao gravar no Storage", variant: "destructive" });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("products")
+        .update({ image_url: data.imageUrl })
+        .eq("id", imageModal.product.id);
+
+      if (error) {
+        toast({ title: "Erro ao salvar imagem", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Imagem salva no Storage!" });
+        setImageModal(null);
+        setSearchResult(null);
+        onRefresh();
+      }
+    } catch {
+      toast({ title: "Erro de conexão", description: "Não foi possível salvar a imagem.", variant: "destructive" });
+    } finally {
+      setSavingImage(false);
     }
-    setSavingImage(false);
   };
 
   // Handle manual file upload
@@ -227,10 +230,6 @@ export default function ProductGrid({ products, totalCount, page, onPageChange, 
             Produtos Cadastrados
             <span className="text-sm font-normal text-muted-foreground">({totalCount})</span>
           </h3>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Search className="h-4 w-4" />
-            Buscas Hoje: <span className={dailyCount >= DAILY_LIMIT ? "text-destructive font-bold" : "font-semibold text-foreground"}>{dailyCount}</span>/{DAILY_LIMIT}
-          </div>
         </div>
         <Table>
           <TableHeader>

@@ -31,7 +31,24 @@ supabase login
 supabase link --project-ref upnfruonbcjvtmlxnihi
 supabase db push
 supabase functions deploy search-image
-supabase secrets set SERPER_API_KEY="sua-chave"  # busca automática de imagens
+supabase functions deploy search-image
+supabase secrets set SERPER_API_KEY="sua-chave"  # obrigatório para busca de imagens
+
+### Buscar imagens em massa (Serper + Storage)
+
+```bash
+# 1. Configure SERPER_API_KEY no Supabase (uma vez)
+supabase secrets set SERPER_API_KEY="sua-chave"
+supabase functions deploy search-image
+
+# 2. Rode o script (consome 1 crédito Serper por produto)
+SUPABASE_URL=https://upnfruonbcjvtmlxnihi.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key \
+node scripts/fetch-product-images.mjs
+
+# Testar com 5 produtos primeiro:
+node scripts/fetch-product-images.mjs --limit 5
+```
 ```
 
 ### Admin
